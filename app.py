@@ -24,6 +24,8 @@ def tab_api():
 
     return jsonify(video_links)
 
+    
+
 @app.route("/<path:filename>")
 def serve_video(filename):
     try:
