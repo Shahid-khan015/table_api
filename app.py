@@ -1,4 +1,4 @@
-from flask import Flask, jsonify , Response,send_file
+from flask import Flask, jsonify , Response 
 import os
 from flask_cors import CORS
 
@@ -23,8 +23,6 @@ def tab_api():
         video_links[dir] = { 'video_links' : list(os.path.join(numbers_links[dir],f) for f in os.listdir(numbers_links[dir]) if f.endswith(video_extensions)) }
 
     return jsonify(video_links)
-
-
 
 @app.route("/<path:filename>")
 def serve_video(filename):
