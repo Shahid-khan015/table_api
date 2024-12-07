@@ -1,49 +1,65 @@
 from flask import Flask, Response , jsonify
-import os
 from flask_cors import CORS
+import os
+from pathlib import Path
 
 app = Flask(__name__)
-
 CORS(app)
 
-application = app
+# Configure static folder for videos
+app.config['STATIC_FOLDER'] = os.path.join(os.getcwd(), 'static')
 
-num_folder = r"website\DataSet\Output"
-numbers_links = {}
-for nl in os.listdir(num_folder):
-    numbers_links[nl] = os.path.join(num_folder , nl)
+@app.route("/api/health")
+def health_check():
+    """Health check endpoint"""
+    return jsonify({"status": "healthy"})
 
-video_links = {}
-
-@app.route("/")
-def tab_api():
-    video_extensions = ('.mp4', '.avi', '.mov', '.mkv')
-
-    for dir in numbers_links:
-        video_links[dir] = { 'video_links' : list(os.path.join(numbers_links[dir],f) for f in os.listdir(numbers_links[dir]) if f.endswith(video_extensions)) }
-
-    return jsonify(video_links)
-
-@app.route("/<path:filename>")
-def serve_video(filename):
+@app.route("/api/videos")
+def get_videos():
+    """Get list of available videos"""
     try:
-        def generate(video_path):
+        static_dir = Path(app.config['STATIC_FOLDER'])
+        if not static_dir.exists():
+            return jsonify({"error": "Static directory not found"}), 404
 
-            with open(video_path, 'rb') as f:
-              while True:
-                chunk = f.read(1024 * 1024)
-                if not chunk:
-                    break
-                yield chunk
+        video_links = {}
+        video_extensions = ('.mp4', '.avi', '.mov', '.mkv')
 
-        return Response(generate(filename) , mimetype="video/mp4")
-        
-    except Exception as f:
-       return (f"An error occurred: {f}")
+        # Scan only the static directory
+        for item in static_dir.iterdir():
+            if item.is_dir():
+                videos = [
+                    f"/api/stream/{item.name}/{video.name}"
+                    for video in item.iterdir()
+                    if video.suffix.lower() in video_extensions
+                ]
+                if videos:
+                    video_links[item.name] = {"video_links": videos}
 
+        return jsonify(video_links)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    
+@app.route("/api/stream/<folder>/<filename>")
+def stream_video(folder, filename):
+    """Stream video files"""
+    try:
+        return send_from_directory(
+            os.path.join(app.config['STATIC_FOLDER'], folder),
+            filename,
+            mimetype='video/mp4'
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
+# Error handlers
+@app.errorhandler(404)
+def not_found_error(error):
+    return jsonify({"error": "Resource not found"}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({"error": "Internal server error"}), 500
 
 
 
